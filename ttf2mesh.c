@@ -1775,34 +1775,27 @@ static ttf_t **load_fonts_from_dir(ttf_t **list, int *count, int *cap, const cha
         while ((entry = readdir(d)))
         {
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
-            if ((entry->d_type & DT_DIR) != 0)
+            if (deepmax > 0)
+                list = load_fonts_from_dir(list, count, cap, entry->d_name, fullpath, deepmax - 1, mask);
+            ttf_t *font;
+            int old_len = strlen(fullpath);
+            if (!check_font_ext(entry->d_name)) continue;
+            if (!check_by_mask(entry->d_name, mask)) continue;
+            if (!make_full_path(fullpath, entry->d_name)) continue;
+            ttf_load_from_file(fullpath, &font, true);
+            fullpath[old_len] = 0;
+            if (font == NULL)
+                continue;
+            if (*count == *cap - 1)
             {
-                if (deepmax > 0)
-                    list = load_fonts_from_dir(list, count, cap, entry->d_name, fullpath, deepmax - 1, mask);
+                ttf_t **tmp;
+                *cap *= 2;
+                tmp = (ttf_t **)realloc(list, sizeof(ttf_t *) * *cap);
+                if (tmp == NULL) break;
+                list = tmp;
             }
-            else
-                if ((entry->d_type & DT_REG))
-                {
-                    ttf_t *font;
-                    int old_len = strlen(fullpath);
-                    if (!check_font_ext(entry->d_name)) continue;
-                    if (!check_by_mask(entry->d_name, mask)) continue;
-                    if (!make_full_path(fullpath, entry->d_name)) continue;
-                    ttf_load_from_file(fullpath, &font, true);
-                    fullpath[old_len] = 0;
-                    if (font == NULL)
-                        continue;
-                    if (*count == *cap - 1)
-                    {
-                        ttf_t **tmp;
-                        *cap *= 2;
-                        tmp = (ttf_t **)realloc(list, sizeof(ttf_t *) * *cap);
-                        if (tmp == NULL) break;
-                        list = tmp;
-                    }
-                    list[*count] = font;
-                    *count += 1;
-                }
+            list[*count] = font;
+            *count += 1;
         }
 
     if (d != NULL)
